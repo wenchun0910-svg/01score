@@ -32,6 +32,7 @@
             width: 1024px; /* 固定寬度以確保橫式比例 */
             background-color: white;
             color: black;
+            z-index: -9999;
         }
     </style>
 </head>
@@ -118,7 +119,7 @@
     </div>
 
     <!-- ===== 專屬 PDF 列印的隱藏區塊 (橫式、無色彩、純表格) ===== -->
-    <div id="pdfExportContainer" class="p-10 z-[-1]">
+    <div id="pdfExportContainer" class="p-10">
         <div class="text-center mb-8">
             <h2 class="text-4xl font-bold text-black tracking-widest" id="pdfExportTitle">評量成績報告</h2>
         </div>
@@ -247,29 +248,43 @@
             btn.disabled = true;
 
             const element = document.getElementById('pdfExportContainer');
+            
+            // 【重要修復】：將原本藏在畫面外的區塊，暫時拉回到畫面可視範圍的左上角，
+            // 由於設定了 z-index: -9999，它會被壓在背景最底下，不會被使用者看到。
+            // 這樣 PDF 套件 (html2canvas) 就能順利讀取到畫面內的元素，解決空白問題！
+            element.style.left = '0px';
+            element.style.top = '0px';
+
             const studentName = document.getElementById('resName').textContent;
             const sheetName = document.getElementById('examSelect').value;
 
             // 寫入當下日期
             const today = new Date();
             const dateStr = `${today.getFullYear()}年${String(today.getMonth() + 1).padStart(2, '0')}月${String(today.getDate()).padStart(2, '0')}日`;
-            document.getElementById('pdfExportDate').textContent = `下載日期：${dateStr}`;
+            document.getElementById('pdfExportDate').textContent = `列印日期：${dateStr}`;
 
             // html2pdf 設定 (橫式、A4、無背景色渲染)
             const opt = {
                 margin:       [0.5, 0.5, 0.5, 0.5], // 上, 右, 下, 左 的邊距
                 filename:     `${studentName}_${sheetName}成績單.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, backgroundColor: '#ffffff' }, 
+                // 加入 scrollY: 0 強制套件從頂部開始截圖
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, backgroundColor: '#ffffff', scrollY: 0 }, 
                 jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // orientation: landscape (橫式)
             };
 
             // 開始產生 PDF
             html2pdf().set(opt).from(element).save().then(() => {
+                // 產生完成後，再把區塊丟回畫面外隱藏起來 (-9999px)
+                element.style.left = '-9999px';
+                element.style.top = '-9999px';
+                
                 btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
             }).catch(err => {
                 console.error('PDF error:', err);
+                element.style.left = '-9999px';
+                element.style.top = '-9999px';
                 btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
                 alert('匯出 PDF 時發生錯誤！');
