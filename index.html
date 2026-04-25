@@ -11,7 +11,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
+        /* 網頁主要字體：思源黑體 */
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        /* PDF 備用字體：Klee One (芫荽體的基礎字型，用於確保沒有安裝芫荽體時依然有硬筆楷書風格) */
+        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap');
+        
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
         .fade-in { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -25,13 +29,15 @@
             padding: 8px 12px; border-radius: 6px; color: #fff; cursor: pointer;
         }
         
-        /* 列印用版面：預設隱藏，不使用 off-screen 寫法以免產生空白 PDF */
+        /* 列印用版面：預設隱藏 */
         #pdfExportContainer {
             display: none;
             width: 1024px; /* 固定寬度以確保橫式比例 */
             background-color: white;
             color: black;
             margin: 0 auto;
+            /* 套用芫荽體，若無安裝則降級使用極相似的 Klee One */
+            font-family: 'Yansui', 'Klee One', 'Noto Sans TC', sans-serif;
         }
     </style>
 </head>
@@ -117,10 +123,11 @@
         </div>
     </div>
 
-    <!-- ===== 專屬 PDF 列印的隱藏區塊 (橫式、無色彩、純表格) ===== -->
+    <!-- ===== 專屬 PDF 列印的隱藏區塊 (橫式、無色彩、純表格、芫荽體) ===== -->
     <div id="pdfExportContainer" class="p-10">
         <div class="text-center mb-8">
-            <h2 class="text-4xl font-bold text-black tracking-widest" id="pdfExportTitle">評量成績報告</h2>
+            <!-- 標題改為：成績通知單 -->
+            <h2 class="text-4xl font-bold text-black tracking-widest" id="pdfExportTitle">成績通知單</h2>
         </div>
         
         <div class="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
@@ -143,11 +150,11 @@
             </tbody>
         </table>
 
-        <!-- 印章與日期區塊 -->
+        <!-- 印章與日期區塊 (修改排列方式) -->
         <div class="flex justify-end mt-12 pr-4">
-            <div class="text-right">
-                <p class="text-lg font-bold text-black mb-4" id="pdfExportDate">列印日期：--</p>
-                <div class="relative inline-block">
+            <!-- 設定為垂直排列 (flex-col) 並置中 (items-center) -->
+            <div class="text-center flex flex-col items-center">
+                <div class="relative inline-block mb-3">
                     <!-- 印章圖片 -->
                     <img src="image_0a7be2.png" alt="導師核章" class="w-28 object-contain mix-blend-multiply" onerror="this.style.display='none'; document.getElementById('pdfCssStamp').style.display='flex';">
                     <!-- 圖片遺失時的 CSS 備用印章 -->
@@ -155,6 +162,8 @@
                         導師<br>核章
                     </div>
                 </div>
+                <!-- 日期移至印章下方 -->
+                <p class="text-lg font-bold text-black tracking-wide" id="pdfExportDate">列印日期：--</p>
             </div>
         </div>
     </div>
@@ -231,7 +240,8 @@
         // ************************************************
         // 請修改為您的最新 GAS 網址
         // ************************************************
-       const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
+     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
+
 
 
         let sheetList = [];
@@ -249,8 +259,7 @@
             const dashboardPanel = document.getElementById('dashboardPanel');
             const mainHeader = document.getElementById('mainHeader');
             
-            // 【修復空白問題】：在產生 PDF 的這幾秒鐘，將原本的畫面隱藏
-            // 並將 PDF 專屬畫面顯示出來 (在正常的 DOM 排版中，確保截圖工具能看見)
+            // 隱藏原始畫面，顯示 PDF 專屬畫面供截圖
             if (mainHeader) mainHeader.style.display = 'none';
             dashboardPanel.style.display = 'none';
             pdfContainer.style.display = 'block';
@@ -261,12 +270,12 @@
             // 寫入當下日期
             const today = new Date();
             const dateStr = `${today.getFullYear()}年${String(today.getMonth() + 1).padStart(2, '0')}月${String(today.getDate()).padStart(2, '0')}日`;
-            document.getElementById('pdfExportDate').textContent = `列印日期：${dateStr}`;
+            document.getElementById('pdfExportDate').textContent = dateStr;
 
             // html2pdf 設定 (橫式、A4、無背景色渲染)
             const opt = {
                 margin:       [0.5, 0.5, 0.5, 0.5], 
-                filename:     `${studentName}_${sheetName}成績單.pdf`,
+                filename:     `${studentName}_${sheetName}成績通知單.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0 }, 
                 jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // 橫式
@@ -274,7 +283,7 @@
 
             // 開始產生 PDF
             html2pdf().set(opt).from(pdfContainer).save().then(() => {
-                // 產生完成後，把原本的網頁畫面恢復回來，隱藏 PDF 區塊
+                // 產生完成後，把原本的網頁畫面恢復回來
                 pdfContainer.style.display = 'none';
                 dashboardPanel.style.display = 'block';
                 if (mainHeader) mainHeader.style.display = 'block';
@@ -540,9 +549,10 @@
             });
 
             // =====================================
-            // 2. 渲染 PDF 專屬隱藏區塊 (無顏色、純表格)
+            // 2. 渲染 PDF 專屬隱藏區塊 (無顏色、純表格、芫荽體)
             // =====================================
-            document.getElementById('pdfExportTitle').textContent = `${sheetName} 報告`;
+            // 修改：標題改為「成績通知單」
+            document.getElementById('pdfExportTitle').textContent = `${sheetName} 成績通知單`;
             document.getElementById('pdfExportSeat').textContent = s.seat;
             document.getElementById('pdfExportName').textContent = s.name;
             document.getElementById('pdfExportNote').textContent = s.note || '--';
