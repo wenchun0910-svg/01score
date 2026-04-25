@@ -24,21 +24,20 @@
             margin-right: 10px; border: none; background: #3b82f6;
             padding: 8px 12px; border-radius: 6px; color: #fff; cursor: pointer;
         }
-        /* 列印用版面隱藏在畫面外，避免干擾網頁閱讀 */
+        
+        /* 列印用版面：預設隱藏，不使用 off-screen 寫法以免產生空白 PDF */
         #pdfExportContainer {
-            position: absolute;
-            left: -9999px;
-            top: -9999px;
+            display: none;
             width: 1024px; /* 固定寬度以確保橫式比例 */
             background-color: white;
             color: black;
-            z-index: -9999;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-8 px-4 relative overflow-x-hidden">
 
-    <header class="mb-6 text-center">
+    <header id="mainHeader" class="mb-6 text-center">
         <h1 class="text-3xl font-bold text-gray-800 tracking-wide mb-2 flex items-center justify-center">
             <i class="fa-solid fa-graduation-cap text-blue-600 mr-2"></i>學生成績查詢
         </h1>
@@ -235,7 +234,6 @@
        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
 
 
-
         let sheetList = [];
         let currentUserId = "";
 
@@ -247,13 +245,15 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>產生中...';
             btn.disabled = true;
 
-            const element = document.getElementById('pdfExportContainer');
+            const pdfContainer = document.getElementById('pdfExportContainer');
+            const dashboardPanel = document.getElementById('dashboardPanel');
+            const mainHeader = document.getElementById('mainHeader');
             
-            // 【重要修復】：將原本藏在畫面外的區塊，暫時拉回到畫面可視範圍的左上角，
-            // 由於設定了 z-index: -9999，它會被壓在背景最底下，不會被使用者看到。
-            // 這樣 PDF 套件 (html2canvas) 就能順利讀取到畫面內的元素，解決空白問題！
-            element.style.left = '0px';
-            element.style.top = '0px';
+            // 【修復空白問題】：在產生 PDF 的這幾秒鐘，將原本的畫面隱藏
+            // 並將 PDF 專屬畫面顯示出來 (在正常的 DOM 排版中，確保截圖工具能看見)
+            if (mainHeader) mainHeader.style.display = 'none';
+            dashboardPanel.style.display = 'none';
+            pdfContainer.style.display = 'block';
 
             const studentName = document.getElementById('resName').textContent;
             const sheetName = document.getElementById('examSelect').value;
@@ -265,26 +265,30 @@
 
             // html2pdf 設定 (橫式、A4、無背景色渲染)
             const opt = {
-                margin:       [0.5, 0.5, 0.5, 0.5], // 上, 右, 下, 左 的邊距
+                margin:       [0.5, 0.5, 0.5, 0.5], 
                 filename:     `${studentName}_${sheetName}成績單.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                // 加入 scrollY: 0 強制套件從頂部開始截圖
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, backgroundColor: '#ffffff', scrollY: 0 }, 
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // orientation: landscape (橫式)
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0 }, 
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // 橫式
             };
 
             // 開始產生 PDF
-            html2pdf().set(opt).from(element).save().then(() => {
-                // 產生完成後，再把區塊丟回畫面外隱藏起來 (-9999px)
-                element.style.left = '-9999px';
-                element.style.top = '-9999px';
+            html2pdf().set(opt).from(pdfContainer).save().then(() => {
+                // 產生完成後，把原本的網頁畫面恢復回來，隱藏 PDF 區塊
+                pdfContainer.style.display = 'none';
+                dashboardPanel.style.display = 'block';
+                if (mainHeader) mainHeader.style.display = 'block';
                 
                 btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
             }).catch(err => {
                 console.error('PDF error:', err);
-                element.style.left = '-9999px';
-                element.style.top = '-9999px';
+                
+                // 若發生錯誤，也要記得恢復原本畫面
+                pdfContainer.style.display = 'none';
+                dashboardPanel.style.display = 'block';
+                if (mainHeader) mainHeader.style.display = 'block';
+                
                 btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
                 alert('匯出 PDF 時發生錯誤！');
