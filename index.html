@@ -24,9 +24,18 @@
             margin-right: 10px; border: none; background: #3b82f6;
             padding: 8px 12px; border-radius: 6px; color: #fff; cursor: pointer;
         }
+        /* 列印用版面隱藏在畫面外，避免干擾網頁閱讀 */
+        #pdfExportContainer {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            width: 1024px; /* 固定寬度以確保橫式比例 */
+            background-color: white;
+            color: black;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-8 px-4 relative">
+<body class="min-h-screen flex flex-col items-center py-8 px-4 relative overflow-x-hidden">
 
     <header class="mb-6 text-center">
         <h1 class="text-3xl font-bold text-gray-800 tracking-wide mb-2 flex items-center justify-center">
@@ -75,32 +84,23 @@
         <div id="resultArea" class="hidden animate-fade-in-up">
             <div id="resultLoader" class="hidden py-12 text-center"><div class="loader inline-block border-t-blue-600 w-10 h-10 mb-4"></div><p>讀取中...</p></div>
             
-            <!-- 將 resultContent 設為白色背景，作為 PDF 的列印畫布 -->
-            <div id="resultContent" class="hidden bg-white p-8 rounded-2xl shadow-xl relative">
-                
-                <!-- 工具列：匯出 PDF 按鈕 (使用 data-html2canvas-ignore 讓它在 PDF 中自動隱藏) -->
-                <div class="flex flex-col-reverse md:flex-row justify-between items-center mb-6 border-b pb-4" data-html2canvas-ignore>
-                    <div class="mt-4 md:mt-0 text-gray-500 text-sm">
-                        此為系統自動產出之成績報告
-                    </div>
+            <!-- 網頁顯示用成績區塊 -->
+            <div id="resultContent" class="hidden">
+                <!-- 工具列：匯出 PDF 按鈕 -->
+                <div class="flex justify-end items-center mb-6">
                     <button onclick="downloadPDF()" id="pdfBtn" class="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg shadow-md transition flex items-center font-bold">
-                        <i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出 PDF 檔案
+                        <i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)
                     </button>
                 </div>
 
-                <!-- PDF 報表標題 (動態替換) -->
-                <div class="text-center mb-6">
-                    <h2 class="text-3xl font-bold text-gray-800 tracking-wider" id="pdfReportTitle">評量成績報告</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-xl shadow-sm text-center border border-gray-100"><div class="text-xs text-gray-400">座號</div><div class="text-2xl font-bold text-gray-800" id="resSeat">--</div></div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm text-center border border-gray-100"><div class="text-xs text-gray-400">姓名</div><div class="text-2xl font-bold text-gray-800" id="resName">--</div></div>
+                    <div class="bg-blue-600 p-4 rounded-xl shadow-md text-center text-white"><div class="text-xs text-blue-100">備註 (名次)</div><div class="text-3xl font-bold" id="resNote">--</div></div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm text-center border border-gray-100"><div class="text-xs text-gray-400">總分</div><div class="text-2xl font-bold text-gray-700" id="resTotal">--</div></div>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center"><div class="text-xs text-gray-500 mb-1">座號</div><div class="text-2xl font-bold text-gray-800" id="resSeat">--</div></div>
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center"><div class="text-xs text-gray-500 mb-1">姓名</div><div class="text-2xl font-bold text-gray-800" id="resName">--</div></div>
-                    <div class="bg-blue-600 p-4 rounded-xl shadow-md text-center text-white"><div class="text-xs text-blue-100 mb-1">備註 (名次)</div><div class="text-3xl font-bold" id="resNote">--</div></div>
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center"><div class="text-xs text-gray-500 mb-1">總分</div><div class="text-2xl font-bold text-gray-700" id="resTotal">--</div></div>
-                </div>
-
-                <div class="rounded-xl overflow-hidden mb-8 border border-gray-200">
+                <div class="bg-white rounded-xl shadow overflow-hidden mb-8 border border-gray-200">
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left">
                             <thead class="text-xs text-gray-600 uppercase bg-gray-100 border-b border-gray-200" id="scoreTableHead">
@@ -112,29 +112,54 @@
                 </div>
                 
                 <div class="mb-4 text-lg font-bold text-gray-700 border-l-4 border-blue-500 pl-2">班級統計分析</div>
-                <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-
-                <!-- PDF 專屬底部簽章區塊 (平時隱藏，匯出 PDF 時顯示) -->
-                <div id="pdfFooter" class="hidden mt-12 pt-8 border-t border-gray-200 flex justify-end items-end pr-4 pb-4">
-                    <div class="text-right relative">
-                        <p class="text-gray-600 mb-4 font-medium" id="pdfDate">列印日期：--</p>
-                        
-                        <!-- 教師印章區塊 -->
-                        <div class="relative inline-block mt-2">
-                            <!-- 嘗試載入您上傳的印章圖片 -->
-                            <img src="image_0a7be2.png" alt="導師核章" class="w-24 object-contain z-10 relative opacity-90 mix-blend-multiply" onerror="this.style.display='none'; document.getElementById('cssStamp').style.display='flex';">
-                            
-                            <!-- 如果圖片檔案遺失，自動顯示這個 CSS 畫出的紅色備用印章 -->
-                            <div id="cssStamp" class="hidden w-20 h-20 border-4 border-red-600 text-red-600 rounded-md items-center justify-center font-bold text-xl transform -rotate-12 bg-white/30 z-0">
-                                導師<br>核章
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"></div>
             </div>
         </div>
     </div>
+
+    <!-- ===== 專屬 PDF 列印的隱藏區塊 (橫式、無色彩、純表格) ===== -->
+    <div id="pdfExportContainer" class="p-10 z-[-1]">
+        <div class="text-center mb-8">
+            <h2 class="text-4xl font-bold text-black tracking-widest" id="pdfExportTitle">評量成績報告</h2>
+        </div>
+        
+        <div class="flex justify-between items-end mb-4 border-b-2 border-black pb-2">
+            <div class="text-xl font-bold">
+                <span class="mr-6">座號：<span id="pdfExportSeat"></span></span>
+                <span>姓名：<span id="pdfExportName"></span></span>
+            </div>
+            <div class="text-xl font-bold">
+                <span class="mr-6">總分：<span id="pdfExportTotal"></span></span>
+                <span>備註(名次)：<span id="pdfExportNote"></span></span>
+            </div>
+        </div>
+
+        <table class="w-full border-collapse border-2 border-black text-lg text-center mb-8">
+            <thead id="pdfExportTableHead">
+                <!-- JS 填入 -->
+            </thead>
+            <tbody id="pdfExportTableBody">
+                <!-- JS 填入 -->
+            </tbody>
+        </table>
+
+        <!-- 印章與日期區塊 -->
+        <div class="flex justify-end mt-12 pr-4">
+            <div class="text-right">
+                <p class="text-lg font-bold text-black mb-4" id="pdfExportDate">列印日期：--</p>
+                <div class="relative inline-block">
+                    <!-- 印章圖片 -->
+                    <img src="image_0a7be2.png" alt="導師核章" class="w-28 object-contain mix-blend-multiply" onerror="this.style.display='none'; document.getElementById('pdfCssStamp').style.display='flex';">
+                    <!-- 圖片遺失時的 CSS 備用印章 -->
+                    <div id="pdfCssStamp" class="hidden w-24 h-24 border-4 border-red-600 text-red-600 rounded-md items-center justify-center font-bold text-2xl transform -rotate-12 bg-white">
+                        導師<br>核章
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ===== PDF 隱藏區塊結束 ===== -->
+
 
     <!-- 3. 管理員面板 (匯入 + 刪除) -->
     <div id="adminPanel" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-50 flex justify-center items-center backdrop-blur-sm">
@@ -208,6 +233,8 @@
         // ************************************************
        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
 
+
+
         let sheetList = [];
         let currentUserId = "";
 
@@ -216,42 +243,34 @@
         // --- 匯出 PDF 功能 ---
         function downloadPDF() {
             const btn = document.getElementById('pdfBtn');
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>處理中...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>產生中...';
             btn.disabled = true;
 
-            const element = document.getElementById('resultContent');
-            const pdfFooter = document.getElementById('pdfFooter');
-            const pdfDate = document.getElementById('pdfDate');
+            const element = document.getElementById('pdfExportContainer');
             const studentName = document.getElementById('resName').textContent;
             const sheetName = document.getElementById('examSelect').value;
 
             // 寫入當下日期
             const today = new Date();
             const dateStr = `${today.getFullYear()}年${String(today.getMonth() + 1).padStart(2, '0')}月${String(today.getDate()).padStart(2, '0')}日`;
-            pdfDate.textContent = `下載日期：${dateStr}`;
+            document.getElementById('pdfExportDate').textContent = `下載日期：${dateStr}`;
 
-            // 顯示底部簽章區塊
-            pdfFooter.classList.remove('hidden');
-
-            // html2pdf 設定
+            // html2pdf 設定 (橫式、A4、無背景色渲染)
             const opt = {
-                margin:       [0.4, 0.4, 0.4, 0.4], // 上, 右, 下, 左 的邊距
+                margin:       [0.5, 0.5, 0.5, 0.5], // 上, 右, 下, 左 的邊距
                 filename:     `${studentName}_${sheetName}成績單.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024 }, // 固定解析度寬度避免跑版
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, backgroundColor: '#ffffff' }, 
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // orientation: landscape (橫式)
             };
 
             // 開始產生 PDF
             html2pdf().set(opt).from(element).save().then(() => {
-                // 產生完畢後，把印章區塊隱藏回來
-                pdfFooter.classList.add('hidden');
-                btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出 PDF 檔案';
+                btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
             }).catch(err => {
                 console.error('PDF error:', err);
-                pdfFooter.classList.add('hidden');
-                btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出 PDF 檔案';
+                btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
                 alert('匯出 PDF 時發生錯誤！');
             });
@@ -417,9 +436,6 @@
             const sheet = document.getElementById('examSelect').value;
             if (!sheet) return;
             
-            // 動態更新 PDF 標題名稱
-            document.getElementById('pdfReportTitle').textContent = sheet;
-
             document.getElementById('resultArea').classList.remove('hidden');
             document.getElementById('resultLoader').classList.remove('hidden');
             document.getElementById('resultContent').classList.add('hidden');
@@ -427,32 +443,31 @@
                 const data = await safeFetch(`${SCRIPT_URL}?op=query&sheet_name=${encodeURIComponent(sheet)}&id_last5=${encodeURIComponent(currentUserId)}`);
                 document.getElementById('resultLoader').classList.add('hidden');
                 if (data.success) {
-                    renderResult(data);
+                    renderResult(data, sheet);
                     document.getElementById('resultContent').classList.remove('hidden');
                 } else { alert(data.error); }
             } catch (e) { alert("查詢錯誤"); }
         }
 
-        function renderResult(data) {
+        function renderResult(data, sheetName) {
             const s = data.student;
             const stats = data.stats;
+            const subjectList = s.subjects; 
+            const showDaily = subjectList.some(sub => sub.daily !== '-' && sub.daily !== '');
 
+            // =====================================
+            // 1. 渲染網頁畫面 (有顏色、有組距圖表)
+            // =====================================
             document.getElementById('resSeat').textContent = s.seat;
             document.getElementById('resName').textContent = s.name;
             document.getElementById('resNote').textContent = s.note || '--';
             document.getElementById('resTotal').textContent = s.total;
 
-            const subjectList = s.subjects; 
-            
-            const showDaily = subjectList.some(sub => sub.daily !== '-' && sub.daily !== '');
-
             const thead = document.getElementById('scoreTableHead');
             const tbody = document.getElementById('scoreTableBody');
             
             let headHtml = `<tr><th class="px-6 py-4 bg-gray-200">科目</th><th class="px-6 py-4 text-center bg-gray-200 border-l border-gray-300">定期評量</th>`;
-            if (showDaily) {
-                headHtml += `<th class="px-6 py-4 text-center bg-gray-200 border-l border-gray-300">平時評量</th>`;
-            }
+            if (showDaily) headHtml += `<th class="px-6 py-4 text-center bg-gray-200 border-l border-gray-300">平時評量</th>`;
             headHtml += `</tr>`;
             thead.innerHTML = headHtml;
 
@@ -470,11 +485,7 @@
                     <tr class="border-b border-gray-200 hover:bg-blue-50 transition-colors">
                         <td class="px-6 py-4 font-bold text-gray-800">${name}</td>
                         <td class="px-6 py-4 text-center font-bold text-blue-600 border-l border-gray-100">${regScore}</td>`;
-                
-                if (showDaily) {
-                    rowHtml += `<td class="px-6 py-4 text-center text-gray-600 border-l border-gray-100">${dailyScore}</td>`;
-                }
-                
+                if (showDaily) rowHtml += `<td class="px-6 py-4 text-center text-gray-600 border-l border-gray-100">${dailyScore}</td>`;
                 rowHtml += `</tr>`;
                 tbody.innerHTML += rowHtml;
 
@@ -482,32 +493,23 @@
                     const total = st.totalCount;
                     let bars = '';
                     const ranges = [
-                        {k:'100',l:'100',c:'bg-purple-500'},
-                        {k:'90-99',l:'90-99',c:'bg-blue-500'},
-                        {k:'80-89',l:'80-89',c:'bg-green-500'},
-                        {k:'70-79',l:'70-79',c:'bg-yellow-500'},
-                        {k:'60-69',l:'60-69',c:'bg-orange-500'},
-                        {k:'under60',l:'<60',c:'bg-red-500'}
+                        {k:'100',l:'100',c:'bg-purple-500'},{k:'90-99',l:'90-99',c:'bg-blue-500'},{k:'80-89',l:'80-89',c:'bg-green-500'},
+                        {k:'70-79',l:'70-79',c:'bg-yellow-500'},{k:'60-69',l:'60-69',c:'bg-orange-500'},{k:'under60',l:'<60',c:'bg-red-500'}
                     ];
-                    
                     ranges.forEach(r => {
                         const count = st.distribution[r.k] || 0;
                         const pct = total ? (count/total)*100 : 0;
                         bars += `
                             <div class="flex items-center text-sm mb-1.5">
                                 <span class="w-12 text-right mr-3 text-gray-600">${r.l}</span>
-                                <div class="flex-1 bg-gray-100 h-2.5 rounded-full overflow-hidden">
-                                    <div class="h-full ${r.c}" style="width:${pct}%"></div>
-                                </div>
+                                <div class="flex-1 bg-gray-100 h-2.5 rounded-full overflow-hidden"><div class="h-full ${r.c}" style="width:${pct}%"></div></div>
                                 <span class="w-8 text-right font-bold text-gray-700">${count||''}</span>
                             </div>`;
                     });
-
                     grid.innerHTML += `
                         <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
                             <div class="flex justify-between items-end border-b border-gray-200 pb-3 mb-3">
-                                <h5 class="font-bold text-gray-800 text-lg">${name}</h5>
-                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">定期</span>
+                                <h5 class="font-bold text-gray-800 text-lg">${name}</h5><span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">定期</span>
                             </div>
                             ${bars}
                             <div class="flex justify-between mt-4 text-center text-sm bg-white border border-gray-100 p-2 rounded-lg shadow-sm">
@@ -517,6 +519,33 @@
                         </div>`;
                 }
             });
+
+            // =====================================
+            // 2. 渲染 PDF 專屬隱藏區塊 (無顏色、純表格)
+            // =====================================
+            document.getElementById('pdfExportTitle').textContent = `${sheetName} 報告`;
+            document.getElementById('pdfExportSeat').textContent = s.seat;
+            document.getElementById('pdfExportName').textContent = s.name;
+            document.getElementById('pdfExportNote').textContent = s.note || '--';
+            document.getElementById('pdfExportTotal').textContent = s.total;
+
+            const pdfThead = document.getElementById('pdfExportTableHead');
+            const pdfTbody = document.getElementById('pdfExportTableBody');
+
+            let pdfHeadHtml = `<tr><th class="border-2 border-black px-4 py-3 bg-white">科目</th><th class="border-2 border-black px-4 py-3 bg-white">定期評量</th>`;
+            if (showDaily) pdfHeadHtml += `<th class="border-2 border-black px-4 py-3 bg-white">平時評量</th>`;
+            pdfHeadHtml += `</tr>`;
+            pdfThead.innerHTML = pdfHeadHtml;
+
+            let pdfBodyHtml = '';
+            subjectList.forEach(sub => {
+                pdfBodyHtml += `<tr>
+                    <td class="border-2 border-black px-4 py-3 font-bold bg-white">${sub.name}</td>
+                    <td class="border-2 border-black px-4 py-3 bg-white">${sub.reg}</td>`;
+                if (showDaily) pdfBodyHtml += `<td class="border-2 border-black px-4 py-3 bg-white">${sub.daily}</td>`;
+                pdfBodyHtml += `</tr>`;
+            });
+            pdfTbody.innerHTML = pdfBodyHtml;
         }
 
         function renderSheetOptions() {
