@@ -13,7 +13,7 @@
     <style>
         /* 網頁主要字體：思源黑體 */
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-        /* PDF 備用字體：Klee One (芫荽體的基礎字型，用於確保沒有安裝芫荽體時依然有硬筆楷書風格) */
+        /* PDF 備用字體：Klee One (芫荽體的基礎字型) */
         @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap');
         
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
@@ -29,17 +29,15 @@
             padding: 8px 12px; border-radius: 6px; color: #fff; cursor: pointer;
         }
         
-        /* 列印用版面：預設隱藏 */
+        /* 列印用版面：寬高鎖定 A4 橫式比例 */
         #pdfExportContainer {
-            display: none;
-            width: 1024px; /* 固定寬度 */
-            height: 724px; /* 固定高度，匹配 A4 橫式比例，強制生成單頁 */
-            padding: 40px 60px; /* 內部留白 (取代 html2pdf 的 margin) */
+            width: 1024px; 
+            height: 724px; 
+            padding: 40px 60px; 
             box-sizing: border-box;
             background-color: white;
             color: black;
             margin: 0 auto;
-            /* 套用芫荽體，若無安裝則降級使用極相似的 Klee One */
             font-family: 'Yansui', 'Klee One', 'Noto Sans TC', sans-serif;
         }
     </style>
@@ -127,13 +125,12 @@
     </div>
 
     <!-- ===== 專屬 PDF 列印的隱藏區塊 (橫式、無色彩、純表格、芫荽體、嚴格單頁) ===== -->
-    <div id="pdfExportContainer">
+    <!-- 加入 hidden class 預設隱藏 -->
+    <div id="pdfExportContainer" class="hidden">
         <div class="text-center mb-8">
-            <!-- 標題 -->
             <h2 class="text-4xl font-bold text-black tracking-widest" id="pdfExportTitle">成績通知單</h2>
         </div>
         
-        <!-- 修改：將原本的 justify-between 改為 justify-center，並加上 space-x-12 讓文字均勻置中 -->
         <div class="flex justify-center items-center mb-4 border-b-2 border-black pb-3 space-x-12">
             <div class="text-xl font-bold">座號：<span id="pdfExportSeat"></span></div>
             <div class="text-xl font-bold">姓名：<span id="pdfExportName"></span></div>
@@ -153,21 +150,16 @@
 
         <!-- 印章與日期區塊 -->
         <div class="flex justify-end mt-8 pr-12">
-            <!-- 垂直排列：上層是字與印章，下層是日期 -->
             <div class="flex flex-col items-center">
-                <!-- 橫向排列：導師文字在左，印章在右 -->
                 <div class="flex items-center mb-2">
                     <span class="text-2xl font-bold text-black mr-4">導師</span>
                     <div class="relative inline-block">
-                        <!-- 印章圖片 -->
                         <img src="image_0a7be2.png" alt="導師核章" class="w-24 object-contain mix-blend-multiply" onerror="this.style.display='none'; document.getElementById('pdfCssStamp').style.display='flex';">
-                        <!-- 圖片遺失時的 CSS 備用印章 -->
                         <div id="pdfCssStamp" class="hidden w-20 h-20 border-4 border-red-600 text-red-600 rounded-md items-center justify-center font-bold text-xl transform -rotate-12 bg-white">
                             核章
                         </div>
                     </div>
                 </div>
-                <!-- 日期 -->
                 <p class="text-lg font-bold text-black tracking-wide" id="pdfExportDate">列印日期：--</p>
             </div>
         </div>
@@ -245,9 +237,7 @@
         // ************************************************
         // 請修改為您的最新 GAS 網址
         // ************************************************
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
-
-
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyELS3N5rYU9Mg8h_TX-vIgUp1YvWmdOxriA9OmALjpaK8VUpScuO7VlhfVhZ_bwgw0TA/exec"; 
 
         let sheetList = [];
         let currentUserId = "";
@@ -265,9 +255,9 @@
             const mainHeader = document.getElementById('mainHeader');
             
             // 隱藏原始畫面，顯示 PDF 專屬畫面供截圖
-            if (mainHeader) mainHeader.style.display = 'none';
-            dashboardPanel.style.display = 'none';
-            pdfContainer.style.display = 'block';
+            if (mainHeader) mainHeader.classList.add('hidden');
+            dashboardPanel.classList.add('hidden');
+            pdfContainer.classList.remove('hidden');
 
             const studentName = document.getElementById('resName').textContent;
             const sheetName = document.getElementById('examSelect').value;
@@ -275,24 +265,23 @@
             // 寫入當下日期
             const today = new Date();
             const dateStr = `${today.getFullYear()}年${String(today.getMonth() + 1).padStart(2, '0')}月${String(today.getDate()).padStart(2, '0')}日`;
-            document.getElementById('pdfExportDate').textContent = dateStr;
+            document.getElementById('pdfExportDate').textContent = `列印日期：${dateStr}`;
 
-            // html2pdf 設定 (橫式、A4、無背景色渲染)
-            // 將 margin 設為 0，因為容器 `#pdfExportContainer` 已經用 CSS 固定為完美吻合 A4 的大小並內含 Padding
+            // html2pdf 設定 (橫式、A4、無邊距)
             const opt = {
                 margin:       0, 
                 filename:     `${studentName}_${sheetName}成績通知單.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, backgroundColor: '#ffffff', scrollY: 0 }, 
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // 橫式
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0 }, 
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } 
             };
 
             // 開始產生 PDF
             html2pdf().set(opt).from(pdfContainer).save().then(() => {
                 // 產生完成後，把原本的網頁畫面恢復回來
-                pdfContainer.style.display = 'none';
-                dashboardPanel.style.display = 'block';
-                if (mainHeader) mainHeader.style.display = 'block';
+                pdfContainer.classList.add('hidden');
+                dashboardPanel.classList.remove('hidden');
+                if (mainHeader) mainHeader.classList.remove('hidden');
                 
                 btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
@@ -300,9 +289,9 @@
                 console.error('PDF error:', err);
                 
                 // 若發生錯誤，也要記得恢復原本畫面
-                pdfContainer.style.display = 'none';
-                dashboardPanel.style.display = 'block';
-                if (mainHeader) mainHeader.style.display = 'block';
+                pdfContainer.classList.add('hidden');
+                dashboardPanel.classList.remove('hidden');
+                if (mainHeader) mainHeader.classList.remove('hidden');
                 
                 btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出成績單 (PDF)';
                 btn.disabled = false;
@@ -458,12 +447,27 @@
             finally { btn.innerHTML = '登入系統'; btn.disabled = false; }
         }
 
+        // ==========================================
+        // 強化登出功能：徹底清空資料並確保隱藏區塊
+        // ==========================================
         function logout() {
             currentUserId = "";
+            
+            // 1. 隱藏所有查詢結果與儀表板
             document.getElementById('dashboardPanel').classList.add('hidden');
-            document.getElementById('loginPanel').classList.remove('hidden');
-            document.getElementById('loginIdInput').value = "";
             document.getElementById('resultArea').classList.add('hidden');
+            document.getElementById('pdfExportContainer').classList.add('hidden'); // 強制隱藏 PDF 區塊
+            
+            // 2. 顯示登入畫面與主標題
+            document.getElementById('loginPanel').classList.remove('hidden');
+            const mainHeader = document.getElementById('mainHeader');
+            if(mainHeader) mainHeader.classList.remove('hidden');
+            
+            // 3. 清空輸入框與畫面上殘留的文字資料
+            document.getElementById('loginIdInput').value = "";
+            document.getElementById('userDisplayName').textContent = "同學";
+            document.getElementById('resName').textContent = "--";
+            document.getElementById('pdfExportName').textContent = "--";
         }
 
         async function handleExamChange() {
@@ -566,13 +570,11 @@
             const pdfThead = document.getElementById('pdfExportTableHead');
             const pdfTbody = document.getElementById('pdfExportTableBody');
 
-            // 修改：在所有的 <th> 內加上 text-center 強制置中
             let pdfHeadHtml = `<tr><th class="border-2 border-black px-4 py-3 bg-white text-center">科目</th><th class="border-2 border-black px-4 py-3 bg-white text-center">定期評量</th>`;
             if (showDaily) pdfHeadHtml += `<th class="border-2 border-black px-4 py-3 bg-white text-center">平時評量</th>`;
             pdfHeadHtml += `</tr>`;
             pdfThead.innerHTML = pdfHeadHtml;
 
-            // 修改：在所有的 <td> 內加上 text-center 強制置中
             let pdfBodyHtml = '';
             subjectList.forEach(sub => {
                 pdfBodyHtml += `<tr>
