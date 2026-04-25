@@ -32,7 +32,10 @@
         /* 列印用版面：預設隱藏 */
         #pdfExportContainer {
             display: none;
-            width: 1024px; /* 固定寬度以確保橫式比例 */
+            width: 1024px; /* 固定寬度 */
+            height: 724px; /* 固定高度，匹配 A4 橫式比例，強制生成單頁 */
+            padding: 40px 60px; /* 內部留白 (取代 html2pdf 的 margin) */
+            box-sizing: border-box;
             background-color: white;
             color: black;
             margin: 0 auto;
@@ -123,10 +126,10 @@
         </div>
     </div>
 
-    <!-- ===== 專屬 PDF 列印的隱藏區塊 (橫式、無色彩、純表格、芫荽體) ===== -->
-    <div id="pdfExportContainer" class="p-10">
+    <!-- ===== 專屬 PDF 列印的隱藏區塊 (橫式、無色彩、純表格、芫荽體、嚴格單頁) ===== -->
+    <div id="pdfExportContainer">
         <div class="text-center mb-8">
-            <!-- 標題改為：成績通知單 -->
+            <!-- 標題 -->
             <h2 class="text-4xl font-bold text-black tracking-widest" id="pdfExportTitle">成績通知單</h2>
         </div>
         
@@ -141,7 +144,8 @@
             </div>
         </div>
 
-        <table class="w-full border-collapse border-2 border-black text-lg text-center mb-8">
+        <!-- 成績表格 -->
+        <table class="w-full border-collapse border-2 border-black text-lg text-center mb-6">
             <thead id="pdfExportTableHead">
                 <!-- JS 填入 -->
             </thead>
@@ -150,19 +154,23 @@
             </tbody>
         </table>
 
-        <!-- 印章與日期區塊 (修改排列方式) -->
-        <div class="flex justify-end mt-12 pr-4">
-            <!-- 設定為垂直排列 (flex-col) 並置中 (items-center) -->
-            <div class="text-center flex flex-col items-center">
-                <div class="relative inline-block mb-3">
-                    <!-- 印章圖片 -->
-                    <img src="image_0a7be2.png" alt="導師核章" class="w-28 object-contain mix-blend-multiply" onerror="this.style.display='none'; document.getElementById('pdfCssStamp').style.display='flex';">
-                    <!-- 圖片遺失時的 CSS 備用印章 -->
-                    <div id="pdfCssStamp" class="hidden w-24 h-24 border-4 border-red-600 text-red-600 rounded-md items-center justify-center font-bold text-2xl transform -rotate-12 bg-white">
-                        導師<br>核章
+        <!-- 印章與日期區塊 -->
+        <div class="flex justify-end mt-8 pr-12">
+            <!-- 垂直排列：上層是字與印章，下層是日期 -->
+            <div class="flex flex-col items-center">
+                <!-- 橫向排列：導師文字在左，印章在右 -->
+                <div class="flex items-center mb-2">
+                    <span class="text-2xl font-bold text-black mr-4">導師</span>
+                    <div class="relative inline-block">
+                        <!-- 印章圖片 -->
+                        <img src="image_0a7be2.png" alt="導師核章" class="w-24 object-contain mix-blend-multiply" onerror="this.style.display='none'; document.getElementById('pdfCssStamp').style.display='flex';">
+                        <!-- 圖片遺失時的 CSS 備用印章 -->
+                        <div id="pdfCssStamp" class="hidden w-20 h-20 border-4 border-red-600 text-red-600 rounded-md items-center justify-center font-bold text-xl transform -rotate-12 bg-white">
+                            核章
+                        </div>
                     </div>
                 </div>
-                <!-- 日期移至印章下方 -->
+                <!-- 日期 -->
                 <p class="text-lg font-bold text-black tracking-wide" id="pdfExportDate">列印日期：--</p>
             </div>
         </div>
@@ -240,7 +248,7 @@
         // ************************************************
         // 請修改為您的最新 GAS 網址
         // ************************************************
-     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
+      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
 
 
 
@@ -273,11 +281,12 @@
             document.getElementById('pdfExportDate').textContent = dateStr;
 
             // html2pdf 設定 (橫式、A4、無背景色渲染)
+            // 將 margin 設為 0，因為容器 `#pdfExportContainer` 已經用 CSS 固定為完美吻合 A4 的大小並內含 Padding
             const opt = {
-                margin:       [0.5, 0.5, 0.5, 0.5], 
+                margin:       0, 
                 filename:     `${studentName}_${sheetName}成績通知單.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0 }, 
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, backgroundColor: '#ffffff', scrollY: 0 }, 
                 jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' } // 橫式
             };
 
@@ -551,7 +560,6 @@
             // =====================================
             // 2. 渲染 PDF 專屬隱藏區塊 (無顏色、純表格、芫荽體)
             // =====================================
-            // 修改：標題改為「成績通知單」
             document.getElementById('pdfExportTitle').textContent = `${sheetName} 成績通知單`;
             document.getElementById('pdfExportSeat').textContent = s.seat;
             document.getElementById('pdfExportName').textContent = s.name;
