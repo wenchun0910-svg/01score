@@ -6,6 +6,10 @@
     <title>學生成績查詢系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 匯入 html2pdf.js 用於產生 PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
@@ -70,26 +74,64 @@
 
         <div id="resultArea" class="hidden animate-fade-in-up">
             <div id="resultLoader" class="hidden py-12 text-center"><div class="loader inline-block border-t-blue-600 w-10 h-10 mb-4"></div><p>讀取中...</p></div>
-            <div id="resultContent" class="hidden">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-gray-400">座號</div><div class="text-2xl font-bold text-gray-800" id="resSeat">--</div></div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-gray-400">姓名</div><div class="text-2xl font-bold text-gray-800" id="resName">--</div></div>
-                    <div class="bg-blue-600 p-4 rounded-xl shadow-md text-center text-white"><div class="text-xs text-blue-100">備註</div><div class="text-3xl font-bold" id="resNote">--</div></div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-gray-400">總分</div><div class="text-2xl font-bold text-gray-700" id="resTotal">--</div></div>
+            
+            <!-- 將 resultContent 設為白色背景，作為 PDF 的列印畫布 -->
+            <div id="resultContent" class="hidden bg-white p-8 rounded-2xl shadow-xl relative">
+                
+                <!-- 工具列：匯出 PDF 按鈕 (使用 data-html2canvas-ignore 讓它在 PDF 中自動隱藏) -->
+                <div class="flex flex-col-reverse md:flex-row justify-between items-center mb-6 border-b pb-4" data-html2canvas-ignore>
+                    <div class="mt-4 md:mt-0 text-gray-500 text-sm">
+                        此為系統自動產出之成績報告
+                    </div>
+                    <button onclick="downloadPDF()" id="pdfBtn" class="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg shadow-md transition flex items-center font-bold">
+                        <i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出 PDF 檔案
+                    </button>
                 </div>
 
-                <div class="bg-white rounded-xl shadow overflow-hidden mb-8 border border-gray-100">
+                <!-- PDF 報表標題 (動態替換) -->
+                <div class="text-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800 tracking-wider" id="pdfReportTitle">評量成績報告</h2>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center"><div class="text-xs text-gray-500 mb-1">座號</div><div class="text-2xl font-bold text-gray-800" id="resSeat">--</div></div>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center"><div class="text-xs text-gray-500 mb-1">姓名</div><div class="text-2xl font-bold text-gray-800" id="resName">--</div></div>
+                    <div class="bg-blue-600 p-4 rounded-xl shadow-md text-center text-white"><div class="text-xs text-blue-100 mb-1">備註 (名次)</div><div class="text-3xl font-bold" id="resNote">--</div></div>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center"><div class="text-xs text-gray-500 mb-1">總分</div><div class="text-2xl font-bold text-gray-700" id="resTotal">--</div></div>
+                </div>
+
+                <div class="rounded-xl overflow-hidden mb-8 border border-gray-200">
                     <div class="overflow-x-auto">
-                        <!-- 表格標題會由 JS 動態生成 -->
                         <table class="w-full text-sm text-left">
-                            <thead class="text-xs text-gray-500 uppercase bg-gray-50" id="scoreTableHead">
+                            <thead class="text-xs text-gray-600 uppercase bg-gray-100 border-b border-gray-200" id="scoreTableHead">
                                 <!-- JS 填入 -->
                             </thead>
-                            <tbody id="scoreTableBody"></tbody>
+                            <tbody id="scoreTableBody" class="divide-y divide-gray-100"></tbody>
                         </table>
                     </div>
                 </div>
-                <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12"></div>
+                
+                <div class="mb-4 text-lg font-bold text-gray-700 border-l-4 border-blue-500 pl-2">班級統計分析</div>
+                <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+                <!-- PDF 專屬底部簽章區塊 (平時隱藏，匯出 PDF 時顯示) -->
+                <div id="pdfFooter" class="hidden mt-12 pt-8 border-t border-gray-200 flex justify-end items-end pr-4 pb-4">
+                    <div class="text-right relative">
+                        <p class="text-gray-600 mb-4 font-medium" id="pdfDate">列印日期：--</p>
+                        
+                        <!-- 教師印章區塊 -->
+                        <div class="relative inline-block mt-2">
+                            <!-- 嘗試載入您上傳的印章圖片 -->
+                            <img src="image_0a7be2.png" alt="導師核章" class="w-24 object-contain z-10 relative opacity-90 mix-blend-multiply" onerror="this.style.display='none'; document.getElementById('cssStamp').style.display='flex';">
+                            
+                            <!-- 如果圖片檔案遺失，自動顯示這個 CSS 畫出的紅色備用印章 -->
+                            <div id="cssStamp" class="hidden w-20 h-20 border-4 border-red-600 text-red-600 rounded-md items-center justify-center font-bold text-xl transform -rotate-12 bg-white/30 z-0">
+                                導師<br>核章
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -164,12 +206,56 @@
         // ************************************************
         // 請修改為您的最新 GAS 網址
         // ************************************************
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec"; 
+       const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKXBdYUPe7RGcvFAU4-Cuy65a9HioNRSKCodyrDuftP9Ub4_nwZr2G_WPG69yM3fFnCw/exec";
 
         let sheetList = [];
         let currentUserId = "";
 
         document.addEventListener('DOMContentLoaded', () => initSystem());
+
+        // --- 匯出 PDF 功能 ---
+        function downloadPDF() {
+            const btn = document.getElementById('pdfBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>處理中...';
+            btn.disabled = true;
+
+            const element = document.getElementById('resultContent');
+            const pdfFooter = document.getElementById('pdfFooter');
+            const pdfDate = document.getElementById('pdfDate');
+            const studentName = document.getElementById('resName').textContent;
+            const sheetName = document.getElementById('examSelect').value;
+
+            // 寫入當下日期
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}年${String(today.getMonth() + 1).padStart(2, '0')}月${String(today.getDate()).padStart(2, '0')}日`;
+            pdfDate.textContent = `下載日期：${dateStr}`;
+
+            // 顯示底部簽章區塊
+            pdfFooter.classList.remove('hidden');
+
+            // html2pdf 設定
+            const opt = {
+                margin:       [0.4, 0.4, 0.4, 0.4], // 上, 右, 下, 左 的邊距
+                filename:     `${studentName}_${sheetName}成績單.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024 }, // 固定解析度寬度避免跑版
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            // 開始產生 PDF
+            html2pdf().set(opt).from(element).save().then(() => {
+                // 產生完畢後，把印章區塊隱藏回來
+                pdfFooter.classList.add('hidden');
+                btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出 PDF 檔案';
+                btn.disabled = false;
+            }).catch(err => {
+                console.error('PDF error:', err);
+                pdfFooter.classList.add('hidden');
+                btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-2 text-lg"></i>匯出 PDF 檔案';
+                btn.disabled = false;
+                alert('匯出 PDF 時發生錯誤！');
+            });
+        }
 
         async function toggleAdmin(show) {
             const panel = document.getElementById('adminPanel');
@@ -330,6 +416,10 @@
         async function handleExamChange() {
             const sheet = document.getElementById('examSelect').value;
             if (!sheet) return;
+            
+            // 動態更新 PDF 標題名稱
+            document.getElementById('pdfReportTitle').textContent = sheet;
+
             document.getElementById('resultArea').classList.remove('hidden');
             document.getElementById('resultLoader').classList.remove('hidden');
             document.getElementById('resultContent').classList.add('hidden');
@@ -354,21 +444,18 @@
 
             const subjectList = s.subjects; 
             
-            // 智慧判斷：檢查是否有任何一科有平時成績 (值不是 "-" 且不是空)
             const showDaily = subjectList.some(sub => sub.daily !== '-' && sub.daily !== '');
 
             const thead = document.getElementById('scoreTableHead');
             const tbody = document.getElementById('scoreTableBody');
             
-            // 動態生成表頭
-            let headHtml = `<tr><th class="px-6 py-3">科目</th><th class="px-6 py-3 text-center">定期評量</th>`;
+            let headHtml = `<tr><th class="px-6 py-4 bg-gray-200">科目</th><th class="px-6 py-4 text-center bg-gray-200 border-l border-gray-300">定期評量</th>`;
             if (showDaily) {
-                headHtml += `<th class="px-6 py-3 text-center">平時評量</th>`;
+                headHtml += `<th class="px-6 py-4 text-center bg-gray-200 border-l border-gray-300">平時評量</th>`;
             }
             headHtml += `</tr>`;
             thead.innerHTML = headHtml;
 
-            // 動態生成內容
             tbody.innerHTML = '';
             const grid = document.getElementById('statsGrid');
             grid.innerHTML = '';
@@ -380,18 +467,17 @@
                 const st = stats[name];
 
                 let rowHtml = `
-                    <tr class="border-b last:border-0 hover:bg-gray-50">
-                        <td class="px-6 py-4 font-medium">${name}</td>
-                        <td class="px-6 py-4 text-center font-bold">${regScore}</td>`;
+                    <tr class="border-b border-gray-200 hover:bg-blue-50 transition-colors">
+                        <td class="px-6 py-4 font-bold text-gray-800">${name}</td>
+                        <td class="px-6 py-4 text-center font-bold text-blue-600 border-l border-gray-100">${regScore}</td>`;
                 
                 if (showDaily) {
-                    rowHtml += `<td class="px-6 py-4 text-center text-gray-500">${dailyScore}</td>`;
+                    rowHtml += `<td class="px-6 py-4 text-center text-gray-600 border-l border-gray-100">${dailyScore}</td>`;
                 }
                 
                 rowHtml += `</tr>`;
                 tbody.innerHTML += rowHtml;
 
-                // 統計圖表 (只顯示定期)
                 if (st && st.totalCount > 0) {
                     const total = st.totalCount;
                     let bars = '';
@@ -408,25 +494,25 @@
                         const count = st.distribution[r.k] || 0;
                         const pct = total ? (count/total)*100 : 0;
                         bars += `
-                            <div class="flex items-center text-xs mb-1">
-                                <span class="w-10 text-right mr-2">${r.l}</span>
-                                <div class="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden">
+                            <div class="flex items-center text-sm mb-1.5">
+                                <span class="w-12 text-right mr-3 text-gray-600">${r.l}</span>
+                                <div class="flex-1 bg-gray-100 h-2.5 rounded-full overflow-hidden">
                                     <div class="h-full ${r.c}" style="width:${pct}%"></div>
                                 </div>
-                                <span class="w-6 text-right font-bold text-gray-600">${count||''}</span>
+                                <span class="w-8 text-right font-bold text-gray-700">${count||''}</span>
                             </div>`;
                     });
 
                     grid.innerHTML += `
-                        <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
-                            <div class="flex justify-between border-b pb-2 mb-2">
-                                <h5 class="font-bold">${name}</h5>
-                                <span class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">定期</span>
+                        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                            <div class="flex justify-between items-end border-b border-gray-200 pb-3 mb-3">
+                                <h5 class="font-bold text-gray-800 text-lg">${name}</h5>
+                                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">定期</span>
                             </div>
                             ${bars}
-                            <div class="flex justify-between mt-2 text-center text-xs bg-gray-50 p-2 rounded">
-                                <div><div class="text-gray-400">平均</div><div class="font-bold text-blue-600 text-base">${st.avg}</div></div>
-                                <div><div class="text-gray-400">高標</div><div class="font-bold text-green-600 text-base">${st.highStd}</div></div>
+                            <div class="flex justify-between mt-4 text-center text-sm bg-white border border-gray-100 p-2 rounded-lg shadow-sm">
+                                <div><div class="text-gray-400 text-xs">平均</div><div class="font-bold text-blue-600 text-lg">${st.avg}</div></div>
+                                <div><div class="text-gray-400 text-xs">高標</div><div class="font-bold text-green-600 text-lg">${st.highStd}</div></div>
                             </div>
                         </div>`;
                 }
